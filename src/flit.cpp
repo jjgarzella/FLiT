@@ -146,7 +146,7 @@ public:
   }
 
   operator bool() const { return static_cast<bool>(m_in); }
-  
+
 private:
   static CsvRow parseRow(std::istream &in) {
     std::string line;
@@ -189,6 +189,7 @@ std::string FlitOptions::toString() const {
   messanger
     << "Options:\n"
     << "  help:           " << boolToString(this->help) << "\n"
+    << "  info:           " << boolToString(this->info) << "\n"
     << "  verbose:        " << boolToString(this->verbose) << "\n"
     << "  timing:         " << boolToString(this->timing) << "\n"
     << "  timingLoops:    " << this->timingLoops << "\n"
@@ -215,6 +216,7 @@ FlitOptions parseArguments(int argCount, char const* const* argList) {
   FlitOptions options;
 
   std::vector<std::string> helpOpts          = { "-h", "--help" };
+  std::vector<std::string> infoOpts          = { "--info" };
   std::vector<std::string> verboseOpts       = { "-v", "--verbose" };
   std::vector<std::string> timingOpts        = { "-t", "--timing" };
   std::vector<std::string> loopsOpts         = { "-l", "--timing-loops" };
@@ -234,6 +236,8 @@ FlitOptions parseArguments(int argCount, char const* const* argList) {
     std::string current(argList[i]);
     if (isIn(helpOpts, current)) {
       options.help = true;
+    } else if (isIn(infoOpts, current)) {
+      options.info = true;
     } else if (isIn(verboseOpts, current)) {
       options.verbose = true;
     } else if (isIn(timingOpts, current)) {
@@ -353,6 +357,8 @@ std::string usage(std::string progName) {
        "\n"
        "  -h, --help      Show this help and exit\n"
        "\n"
+       "  --info          Show compilation information and exit\n"
+       "\n"
        "  -L, --list-tests\n"
        "                  List all available tests and exit.\n"
        "\n"
@@ -369,6 +375,14 @@ std::string usage(std::string progName) {
        "                  of loops to run, specifically tuned for each\n"
        "                  individual test.  This means each test will be run\n"
        "                  multiple times by default.\n"
+       "\n"
+       "                  Note: when MPI is turned on (by setting the\n"
+       "                  enable_mpi variable in flit-config.toml to true)\n"
+       "                  and running more than one process, automatic loop\n"
+       "                  tuning is disabled, otherwise a deadlock could\n"
+       "                  occur.  If you try to use the auto-tuning (which\n"
+       "                  is the default behavior), then the loops will be\n"
+       "                  converted to one instead.\n"
        "\n"
        "  -r REPEATS, --timing-repeats REPEATS\n"
        "                  How many times to repeat the timing.  The default\n"
@@ -458,9 +472,9 @@ std::vector<TestResult> parseResults(std::istream &in) {
     auto nanosec = std::stol(row["nanosec"]);
     Variant value;
     std::string resultfile;
-    if (row["score"] != "NULL") {
-      // Convert score into a long double
-      value = as_float(flit::stouint128(row["score"]));
+    if (row["score_hex"] != "NULL") {
+      // Convert score_hex into a long double
+      value = as_float(flit::stouint128(row["score_hex"]));
     } else {
       // Read string from the resultfile
       if (row["resultfile"] == "NULL") {

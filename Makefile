@@ -1,7 +1,7 @@
 PREFIX         ?= /usr
 
-#CC             := clang++
-CC             := g++
+#CXX            ?= clang++
+CXX            ?= g++
 FFLAGS         ?=
 LIBDIR         := lib
 SRCDIR         := src
@@ -68,10 +68,10 @@ help:
 
 $(TARGET): $(OBJ)
 	mkdir -p lib
-	$(CC) $(CPPFLAGS) -o $@ $^ $(LINKFLAGS)
+	$(CXX) $(CPPFLAGS) -o $@ $^ $(LINKFLAGS)
 
 $(SRCDIR)/%.o: $(SRCDIR)/%.cpp Makefile
-	$(CC) $(CPPFLAGS) $(DEPFLAGS) -c $< -o $@
+	$(CXX) $(CPPFLAGS) $(DEPFLAGS) -c $< -o $@
 
 .PRECIOUS: src/%.d
 -include $(SOURCE:%.cpp=%.d)
@@ -94,17 +94,18 @@ distclean: clean
 install: $(TARGET)
 	mkdir -m 0755 -p $(PREFIX)/bin
 	mkdir -m 0755 -p $(PREFIX)/lib
-	mkdir -m 0755 -p $(PREFIX)/include
+	mkdir -m 0755 -p $(PREFIX)/include/flit
 	mkdir -m 0755 -p $(PREFIX)/share/flit/scripts
 	mkdir -m 0755 -p $(PREFIX)/share/flit/doc
 	mkdir -m 0755 -p $(PREFIX)/share/flit/data/tests
 	mkdir -m 0755 -p $(PREFIX)/share/flit/data/db
 	mkdir -m 0755 -p $(PREFIX)/share/flit/config
 	mkdir -m 0755 -p $(PREFIX)/share/flit/litmus-tests
+	mkdir -m 0755 -p $(PREFIX)/share/flit/benchmarks
 	mkdir -m 0755 -p $(PREFIX)/share/licenses/flit
 	ln -sf ../share/flit/scripts/flit.py $(PREFIX)/bin/flit
 	install -m 0755 $(TARGET) $(PREFIX)/lib/$(notdir $(TARGET))
-	install -m 0644 $(HEADERS) $(PREFIX)/include/
+	install -m 0644 $(HEADERS) $(PREFIX)/include/flit/
 	install -m 0755 $(SCRIPT_DIR)/flit.py $(PREFIX)/share/flit/scripts/
 	install -m 0755 $(SCRIPT_DIR)/flit_*.py $(PREFIX)/share/flit/scripts/
 	install -m 0644 $(SCRIPT_DIR)/flitutil.py $(PREFIX)/share/flit/scripts/
@@ -120,6 +121,7 @@ install: $(TARGET)
 	install -m 0644 $(CONFIG_DIR)/flit-default.toml.in $(PREFIX)/share/flit/config/
 	install -m 0644 $(LITMUS_TESTS) $(PREFIX)/share/flit/litmus-tests/
 	install -m 0644 LICENSE $(PREFIX)/share/licenses/flit/
+	cp -r benchmarks/* $(PREFIX)/share/flit/benchmarks/
 	@echo "Generating $(INSTALL_FLIT_CONFIG)"
 	@# Make the flitconfig.py script specifying this installation information
 	@echo "'''"                                                                  > $(INSTALL_FLIT_CONFIG)
@@ -151,7 +153,7 @@ install: $(TARGET)
 	@echo "lib_dir = '$(abspath $(PREFIX))/lib'"                                >> $(INSTALL_FLIT_CONFIG)
 	@echo                                                                       >> $(INSTALL_FLIT_CONFIG)
 	@echo "# flit C++ include files, primarily flit.h"                          >> $(INSTALL_FLIT_CONFIG)
-	@echo "include_dir = '$(abspath $(PREFIX))/include'"                        >> $(INSTALL_FLIT_CONFIG)
+	@echo "include_dir = '$(abspath $(PREFIX))/include/flit'"                   >> $(INSTALL_FLIT_CONFIG)
 	@echo                                                                       >> $(INSTALL_FLIT_CONFIG)
 	@echo "# default configuration for flit init"                               >> $(INSTALL_FLIT_CONFIG)
 	@echo "config_dir = '$(abspath $(PREFIX))/share/flit/config'"               >> $(INSTALL_FLIT_CONFIG)
@@ -166,3 +168,16 @@ install: $(TARGET)
 	@echo "# directory containing litmus tests"                                 >> $(INSTALL_FLIT_CONFIG)
 	@echo "litmus_test_dir = '$(abspath $(PREFIX))/share/flit/litmus-tests'"    >> $(INSTALL_FLIT_CONFIG)
 
+.PHONY: uninstall
+uninstall:
+	rm -rf $(PREFIX)/include/flit
+	rm -rf $(PREFIX)/share/flit
+	rm -rf $(PREFIX)/share/licenses/flit
+	rm -f $(PREFIX)/bin/flit
+	rm -f $(PREFIX)/lib/$(notdir $(TARGET))
+	-rmdir --ignore-fail-on-non-empty $(PREFIX)/include
+	-rmdir --ignore-fail-on-non-empty $(PREFIX)/share/licenses
+	-rmdir --ignore-fail-on-non-empty $(PREFIX)/share
+	-rmdir --ignore-fail-on-non-empty $(PREFIX)/bin
+	-rmdir --ignore-fail-on-non-empty $(PREFIX)/lib
+	-rmdir --ignore-fail-on-non-empty $(PREFIX)

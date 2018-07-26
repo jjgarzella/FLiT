@@ -125,7 +125,7 @@ def generate_help_documentation(subcom_map):
     Generates and returns both the formatted help for the general flit
     executable, but also for the help subcommand.  They are returned as a
     tuple.
-    
+
     >>> help_str, help_subcom_str = generate_help_documentation(dict())
     '''
     parser = argparse.ArgumentParser(
@@ -160,11 +160,30 @@ def generate_help_documentation(subcom_map):
 
     return (parser.format_help(), help_subparser.format_help())
 
-def main(arguments):
+def main(arguments, outstream=None):
+    '''
+    Main logic here.
+
+    For ease of use when within python, the stdout can be captured using the
+    optional outstream parameter.  You can use this to capture the stdout that
+    would go to the console and put it into a StringStream or maybe a file.
+    '''
+    if outstream is None:
+        return _main_impl(arguments)
+    else:
+        try:
+            oldout = sys.stdout
+            sys.stdout = outstream
+            _main_impl(arguments)
+        finally:
+            sys.stdout = oldout
+
+def _main_impl(arguments):
+    'Implementation of main'
     script_dir = os.path.dirname(os.path.realpath(__file__))
     sys.path.insert(0, script_dir)
     import flitconfig as conf
-    
+
     subcom_map = import_helper_modules(script_dir)
 
     help_str, help_subcommand_str = generate_help_documentation(subcom_map)
@@ -194,7 +213,7 @@ def main(arguments):
         if help_subcommand in ('-h', '--help', 'help'):
             print(help_subcommand_str)
             return 0
-        
+
         elif help_subcommand not in all_subcommands:
             sys.stderr.write('Error: invalid subcommand: {0}.\n' \
                              .format(subcommand))

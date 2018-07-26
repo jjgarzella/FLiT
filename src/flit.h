@@ -87,17 +87,9 @@
 #ifndef FLIT_H
 #define FLIT_H 0
 
-#include "Matrix.h"
-#include "MatrixCU.h"
+#include "MpiEnvironment.h"
 #include "TestBase.h"
-#include "Vector.h"
-#include "VectorCU.h"
 #include "flitHelpers.h"
-
-#ifdef __CUDA__
-//#include <cuda.h>
-#include "CUHelpers.h"
-#endif
 
 #include <algorithm>
 #include <chrono>
@@ -144,6 +136,7 @@ namespace flit {
 /** Command-line options */
 struct FlitOptions {
   bool help = false;         // show usage and exit
+  bool info = false;         // show compilation info and exit
   bool listTests = false;    // list available tests and exit
   bool verbose = false;      // show debug verbose messages
   std::vector<std::string> tests; // which tests to run
@@ -152,7 +145,7 @@ struct FlitOptions {
   bool timing = true;        // should we run timing?
   int timingLoops = -1;      // < 1 means to auto-determine the timing loops
   int timingRepeats = 3;     // return best of this many timings
-  
+
   bool compareMode = false;  // compare results after running the test
   std::string compareGtFile; // ground truth results to use in compareMode
   std::vector<std::string> compareFiles; // files for compareMode
@@ -184,11 +177,20 @@ struct pair_hash {
   }
 };
 
-/** Parse arguments */
+/// Parse arguments
 FlitOptions parseArguments(int argCount, char const* const argList[]);
 
-/** Returns the usage information as a string */
+/// Returns the usage information as a string
 std::string usage(std::string progName);
+
+/// The compilation information as a string
+static std::string info =
+  "Compilation information:\n"
+  "  Host:               \"" FLIT_HOST     "\"\n"
+  "  Compiler:           \"" FLIT_COMPILER "\"\n"
+  "  Optimization level: \"" FLIT_OPTL     "\"\n"
+  "  Compiler flags:     \"" FLIT_SWITCHES "\"\n"
+  "  Filename:           \"" FLIT_FILENAME "\"\n";
 
 /// Read file contents entirely into a string
 std::string readFile(const std::string &filename);
@@ -223,7 +225,8 @@ public:
   using key_type = std::pair<std::string, std::string>;
 
   void loadfile(const std::string &filename) {
-    std::ifstream resultfile = ifopen(filename);
+    std::ifstream resultfile;
+    flit::ifopen(resultfile, filename);
     auto parsed = parseResults(resultfile);
     this->extend(parsed, filename);
   }
@@ -290,11 +293,11 @@ inline void outputResults (
          "optl,"
          "switches,"
          "precision,"
+         "score_hex,"
          "score,"
-         "score_d,"
          "resultfile,"
+         "comparison_hex,"
          "comparison,"
-         "comparison_d,"
          "file,"
          "nanosec"
       << std::endl;
@@ -310,13 +313,13 @@ inline void outputResults (
 
     if (result.result().type() == Variant::Type::LongDouble) {
       out
-        << as_int(result.result().longDouble()) << "," // score
-        << result.result().longDouble() << ","       // score_d
+        << as_int(result.result().longDouble()) << "," // score_hex
+        << result.result().longDouble() << ","       // score
         ;
     } else {
       out
+        << FLIT_NULL << ","                          // score_hex
         << FLIT_NULL << ","                          // score
-        << FLIT_NULL << ","                          // score_d
         ;
     }
 
@@ -328,13 +331,13 @@ inline void outputResults (
 
     if (result.is_comparison_null()) {
       out
+        << FLIT_NULL << ","                          // comparison_hex
         << FLIT_NULL << ","                          // comparison
-        << FLIT_NULL << ","                          // comparison_d
         ;
     } else {
       out
-        << as_int(result.comparison()) << ","        // comparison
-        << result.comparison() << ","                // comparison_d
+        << as_int(result.comparison()) << ","        // comparison_hex
+        << result.comparison() << ","                // comparison
         ;
     }
 
@@ -412,42 +415,71 @@ private:
 };
 
 inline int runFlitTests(int argc, char* argv[]) {
+  // Now only used for MPI, but basically a boolean to say whether this process
+  // is the main one
+  MpiEnvironment mpi_env(argc, argv);
+  flit::mpi = &mpi_env;
+
   // Argument parsing
   FlitOptions options;
   try {
     options = parseArguments(argc, argv);
   } catch (ParseException &ex) {
-    std::cerr << "Error: " << ex.what() << "\n"
-              << "  Use the --help option for more information\n";
+    if (mpi->is_root()) {
+      std::cerr << "Error: " << ex.what() << "\n"
+                << "  Use the --help option for more information\n";
+    }
     return 1;
   }
 
   if (options.help) {
-    std::cout << usage(argv[0]);
-    return 0;
-  }
-
-  if (options.listTests) {
-    for (auto& test : getKeys(getTests())) {
-      std::cout << test << std::endl;
+    if (mpi->is_root()) {
+      std::cout << usage(argv[0]);
     }
     return 0;
   }
 
-  if (options.verbose) {
+  if (options.info) {
+    if (mpi->is_root()) {
+      std::cout << info;
+    }
+    return 0;
+  }
+
+  if (options.listTests) {
+    if (mpi->is_root()) {
+      for (auto& test : getKeys(getTests())) {
+        std::cout << test << std::endl;
+      }
+    }
+    return 0;
+  }
+
+  if (options.verbose && mpi->is_root()) {
     info_stream.show();
+  }
+
+  // When MPI is enabled, we cannot use the automatic timing loop algorithm,
+  // otherwise we could deadlock
+  if (mpi->size > 1 && options.timing && options.timingLoops < 1) {
+    if (mpi->is_root()) {
+      std::cerr << "Warning: cannot run auto-looping with MPI; "
+                   "Looping set to 1\n";
+    }
+    options.timingLoops = 1;
   }
 
   std::unique_ptr<std::ostream> stream_deleter;
   std::ostream *outstream = &std::cout;
   std::string test_result_filebase(FLIT_FILENAME);
-  if (!options.output.empty()) {
+  if (!options.output.empty() && mpi->is_root()) {
     stream_deleter.reset(new std::ofstream());
     outstream = stream_deleter.get();
     try {
-      static_cast<std::ofstream&>(*outstream) = ofopen(options.output);
+      flit::ofopen(static_cast<std::ofstream&>(*outstream), options.output);
     } catch (std::ios::failure &ex) {
       std::cerr << "Error: failed to open " << options.output << std::endl;
+      mpi->abort(1);
       return 1;
     }
     test_result_filebase = options.output;
@@ -461,7 +493,7 @@ inline int runFlitTests(int argc, char* argv[]) {
     if (!options.compareGtFile.empty()) {
       std::ifstream fin;
       try {
-        fin = ifopen(options.compareGtFile);
+        flit::ifopen(fin, options.compareGtFile);
       } catch (std::ios::failure &ex) {
         std::cerr << "Error: file does not exist: " << options.compareGtFile
                   << std::endl;
@@ -473,10 +505,6 @@ inline int runFlitTests(int argc, char* argv[]) {
 
   std::cout.precision(1000); //set cout to print many decimal places
   info_stream.precision(1000);
-
-#ifdef __CUDA__
-  initDeviceData();
-#endif
 
   auto testMap = getTests();
   for (auto& testName : options.tests) {
@@ -498,9 +526,6 @@ inline int runFlitTests(int argc, char* argv[]) {
           options.timingLoops, options.timingRepeats, idx);
     }
   }
-#if defined(__CUDA__) && !defined(__CPUKERNEL__)
-  cudaDeviceSynchronize();
-#endif
 
   // Sort the results first by name then by precision
   auto testComparator = [](const TestResult &a, const TestResult &b) {
@@ -513,14 +538,15 @@ inline int runFlitTests(int argc, char* argv[]) {
   std::sort(results.begin(), results.end(), testComparator);
 
   // Let's now run the ground-truth comparisons
-  if (options.compareMode) {
+  if (options.compareMode && mpi->is_root()) {
     TestResultMap comparisonResults;
-  
+
     for (auto fname : options.compareFiles) {
       try {
         comparisonResults.loadfile(fname);
       } catch (std::ios::failure &ex) {
         std::cerr << "Error: failed to open file " << fname << std::endl;
+        mpi->abort(1);
         return 1;
       }
     }
@@ -543,9 +569,10 @@ inline int runFlitTests(int argc, char* argv[]) {
       {
         std::ifstream fin;
         try {
-          fin = ifopen(fname);
+          flit::ifopen(fin, fname);
         } catch (std::ios_base::failure &ex) {
           std::cerr << "Error: file does not exist: " << fname << std::endl;
+          mpi->abort(1);
           return 1;
         }
         metadata = parseMetadata(fin);
@@ -565,9 +592,10 @@ inline int runFlitTests(int argc, char* argv[]) {
       {
         std::ofstream fout;
         try {
-          fout = ofopen(fname + options.compareSuffix);
+          flit::ofopen(fout, fname + options.compareSuffix);
         } catch (std::ios::failure &ex) {
           std::cerr << "Error: could not write to " << fname << std::endl;
+          mpi->abort(1);
           return 1;
         }
         outputResults(
@@ -584,7 +612,10 @@ inline int runFlitTests(int argc, char* argv[]) {
   }
 
   // Create the main results output
-  outputResults(results, *outstream);
+  if (mpi->is_root()) {
+    outputResults(results, *outstream);
+  }
+
   return 0;
 }
 

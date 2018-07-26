@@ -90,6 +90,7 @@
 
 #include <algorithm>
 #include <array>
+#include <ios>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -103,7 +104,10 @@ public:
   std::ofstream out;
   TempFile() {
     char fname_buf[L_tmpnam];
-    std::tmpnam(fname_buf);    // gives a warning, but I'm not worried
+    char *s = std::tmpnam(fname_buf);    // gives a warning, but I'm not worried
+    if (s != fname_buf) {
+      throw std::runtime_error("Could not create temporary file");
+    }
 
     name = fname_buf;
     name += "-tst_flit.in";    // this makes the danger much less likely
@@ -212,6 +216,7 @@ TH_REGISTER(tst_default_macro_values);
 void tst_FlitOptions_toString() {
   flit::FlitOptions opt;
   opt.help = true;
+  opt.info = false;
   opt.listTests = false;
   opt.verbose = false;
   opt.tests = {"one", "two", "three"};
@@ -228,6 +233,7 @@ void tst_FlitOptions_toString() {
   TH_EQUAL(opt.toString(),
       "Options:\n"
       "  help:           true\n"
+      "  info:           false\n"
       "  verbose:        false\n"
       "  timing:         false\n"
       "  timingLoops:    100\n"
@@ -356,7 +362,7 @@ TH_REGISTER(tst_parseArguments_long_flags);
 void tst_parseArguments_compare_test_names() {
   // tests that the parseArguments does not read the files - keep it simple
   TempFile tmpf;
-  tmpf.out << "name,precision,score,resultfile,nanosec\n"
+  tmpf.out << "name,precision,score_hex,resultfile,nanosec\n"
            << "test1,d,0x0,NULL,0\n"
            << "test2,d,0x0,NULL,0\n"
            << "test3,d,0x0,NULL,0";
@@ -441,11 +447,11 @@ void tst_parseArguments_expects_integers() {
   expected.timingLoops = 123;
   auto actual = flit::parseArguments(argList.size(), argList.data());
   TH_EQUAL(actual, expected);
-  
+
   argList = {"progName", "--timing-loops", "abc"};
   TH_THROWS(flit::parseArguments(argList.size(), argList.data()),
             flit::ParseException);
-  
+
   argList = {"progName", "--timing-repeats", "abc"};
   TH_THROWS(flit::parseArguments(argList.size(), argList.data()),
             flit::ParseException);
@@ -572,7 +578,7 @@ TH_REGISTER(tst_readFile_exists);
 
 void tst_readFile_doesnt_exist() {
   TH_THROWS(flit::readFile("/this/file/should/not/exist"),
-            std::system_error);
+            std::ios_base::failure);
 }
 TH_REGISTER(tst_readFile_doesnt_exist);
 
@@ -593,7 +599,7 @@ namespace flit {
 }
 void tst_parseResults() {
   std::istringstream in(
-      "name,precision,score,resultfile,nanosec\n"
+      "name,precision,score_hex,resultfile,nanosec\n"
       "Mike,double,0x00000000000000000000,output.txt,149293\n"
       "Brady,long double,0x3fff8000000000000000,NULL,-1\n"
       "Julia,float,NULL,test-output.txt,498531\n"
@@ -618,22 +624,22 @@ void tst_parseResults_invalid_format() {
   TH_THROWS(flit::parseResults(in), std::invalid_argument);
 
   // empty row
-  in.str("name,precision,score,resultfile,nanosec\n"
+  in.str("name,precision,score_hex,resultfile,nanosec\n"
          "\n");
   TH_THROWS(flit::parseResults(in), std::out_of_range);
 
   // non-integer nanosec
-  in.str("name,precision,score,resultfile,nanosec\n"
+  in.str("name,precision,score_hex,resultfile,nanosec\n"
          "Mike,double,0x0,NULL,bob\n");
   TH_THROWS(flit::parseResults(in), std::invalid_argument);
 
   // non-integer score
-  in.str("name,precision,score,resultfile,nanosec\n"
+  in.str("name,precision,score_hex,resultfile,nanosec\n"
          "Mike,double,giraffe,NULL,323\n");
   TH_THROWS(flit::parseResults(in), std::invalid_argument);
 
   // doesn't end in a newline.  Make sure it doesn't throw
-  in.str("name,precision,score,resultfile,nanosec\n"
+  in.str("name,precision,score_hex,resultfile,nanosec\n"
          "Mike,double,0x0,NULL,323");
   auto actual = flit::parseResults(in);
   decltype(actual) expected;
@@ -702,7 +708,7 @@ void tst_calculateMissingComparisons_noGtFile() {
   flit::FlitOptions options;
   options.compareMode = true;
   TempFile tmpf;
-  tmpf.out << "name,precision,score,resultfile,nanosec\n"
+  tmpf.out << "name,precision,score_hex,resultfile,nanosec\n"
            << "test1,d,0x0,NULL,0\n"
            << "test2,d,0x0,NULL,0\n"
            << "test3,d,0x0,NULL,0";
@@ -716,19 +722,19 @@ TH_REGISTER(tst_calculateMissingComparisons_noGtFile);
 
 void tst_calculateMissingComparisons_withGtFile() {
   TempFile compf1;
-  compf1.out << "name,precision,score,resultfile,nanosec\n"
+  compf1.out << "name,precision,score_hex,resultfile,nanosec\n"
              << "test1,d,0x0,NULL,0\n"
              << "test2,d,0x0,NULL,0\n"
              << "test3,d,0x0,NULL,0\n";
   compf1.out.flush();
   TempFile compf2;
-  compf2.out << "name,precision,score,resultfile,nanosec\n"
+  compf2.out << "name,precision,score_hex,resultfile,nanosec\n"
              << "test2,d,0x0,NULL,0\n"
              << "test4,d,0x0,NULL,0\n"
              << "test6,d,0x0,NULL,0\n";
   compf2.out.flush();
   TempFile gtf;
-  gtf.out << "name,precision,score,resultfile,nanosec\n"
+  gtf.out << "name,precision,score_hex,resultfile,nanosec\n"
           << "test1,d,0x0,NULL,0\n"
           << "test2,d,0x0,NULL,0\n"
           << "test5,d,0x0,NULL,0\n";
