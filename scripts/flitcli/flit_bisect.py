@@ -1618,6 +1618,11 @@ def auto_bisect_worker(arg_queue, result_queue):
         # exit the function
         pass
 
+def compile_trouble_tuple(all_args):
+    x = compile_trouble(*all_args)
+    print('Finished compile_trouble()')
+    return x
+
 def parallel_auto_bisect(arguments, prog=sys.argv[0]):
     '''
     Runs bisect in parallel under the auto mode.  This is only applicable if
@@ -1689,16 +1694,14 @@ def parallel_auto_bisect(arguments, prog=sys.argv[0]):
                     stdout=subp.DEVNULL, stderr=subp.DEVNULL)
 
     print('Before parallel bisect run, compile all object files')
-    for i, compilation in enumerate(sorted(compilation_set)):
-        compiler, optl, switches = compilation
-        print('  ({0} of {1})'.format(i + 1, len(compilation_set)),
-              ' '.join((compiler, optl, switches)) + ':',
-              end='',
-              flush=True)
-        compile_trouble(args.directory, compiler, optl, switches,
-                        verbose=args.verbose, jobs=args.jobs,
-                        delete=args.delete)
-        print('  done', flush=True)
+    with mp.Pool(processes=args.parallel) as pool:
+        all_arg_tuples = []
+        for i, compilation in enumerate(sorted(compilation_set)):
+            compiler, optl, switches = compilation
+            all_arg_tuples.append(
+                (args.directory, compiler, optl, switches,
+                 args.verbose, args.jobs, args.delete))
+        pool.map(compile_trouble_tuple, all_arg_tuples)
 
     # Update ground-truth results before launching workers
     update_gt_results(args.directory, verbose=args.verbose, jobs=args.jobs)
