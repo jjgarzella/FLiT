@@ -501,7 +501,7 @@ def is_result_differing(resultfile):
     '''
     return float(get_comparison_result(resultfile)) != 0.0
 
-SymbolTuple = namedtuple('SymbolTuple', 'src, symbol, demangled, fname, lineno')
+SymbolTuple = namedtuple('SymbolTuple', 'src, symbol, demangled, fname, lineno, type')
 SymbolTuple.__doc__ = '''
 Tuple containing information about the symbols in a file.  Has the following
 attributes:
@@ -511,6 +511,7 @@ attributes:
     fname:      filename where the symbol is actually defined.  This usually
                 will be equal to src, but may not be in some situations.
     lineno:     line number of definition within fname.
+    type:       single character given by nm for the type of symbol
 '''
 
 _extract_symbols_memos = {}
@@ -584,15 +585,15 @@ def extract_symbols(file_or_filelist, objdir):
     for symbol_string, demangled_string in zip(symbol_strings,
                                                demangled_symbol_strings):
         symbol_type, symbol = symbol_string.split(maxsplit=2)[1:]
-        if symbol_type != "T": # only look at strong symbols in the text section
-            continue
+        #if symbol_type != 'T': # only look at strong symbols in the text section
+        #    continue
         demangled = demangled_string.split(maxsplit=2)[2]
         try:
             deffile, defline = symbol_line_mapping[symbol]
         except KeyError:
             deffile, defline = None, None
         symbol_tuples.append(
-            SymbolTuple(fname, symbol, demangled, deffile, defline))
+            SymbolTuple(fname, symbol, demangled, deffile, defline, symbol_type))
 
     _extract_symbols_memos[fobj] = symbol_tuples
     return symbol_tuples
@@ -1232,14 +1233,15 @@ def _gen_bisect_symbol_checker(args, bisect_path, replacements, sources,
         @return The comparison value between this mixed compilation and the
             full baseline compilation.
         '''
-        gt_symbols = list(set(symbols).difference(symbols_to_optimize))
+        to_optimize = [x for x in symbols_to_optimize if x.type == 'T']
+        gt_symbols = list(set(symbols).difference(to_optimize))
         all_sources = list(sources)  # copy the list of all source files
-        symbol_sources = [x.src for x in symbols_to_optimize + gt_symbols]
+        symbol_sources = [x.src for x in to_optimize + gt_symbols]
         trouble_src = []
         gt_src = list(set(all_sources).difference(symbol_sources))
         symbol_map = {x: [
             [y.symbol for y in gt_symbols if y.src == x],
-            [z.symbol for z in symbols_to_optimize if z.src == x],
+            [z.symbol for z in to_optimize if z.src == x],
             ]
                       for x in symbol_sources}
 
@@ -1248,7 +1250,7 @@ def _gen_bisect_symbol_checker(args, bisect_path, replacements, sources,
         makepath = os.path.join(bisect_path, makefile)
         symbol_strings = [
             '  {sym.fname}:{sym.lineno} {sym.symbol} -- {sym.demangled}'
-            .format(sym=sym) for sym in symbols_to_optimize
+            .format(sym=sym) for sym in to_optimize
             ]
         return test_makefile(args, makepath, symbol_strings, indent=indent)
 
