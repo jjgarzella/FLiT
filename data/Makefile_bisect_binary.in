@@ -100,7 +100,7 @@ TEST_CASE        := {test_case}
 TROUBLE_CC       := {trouble_cc}
 TROUBLE_OPTL     := {trouble_optl}
 TROUBLE_SWITCHES := {trouble_switches}
-BISECT_LINK      := $(GT_CC)
+BISECT_LINK      := {bisect_linker}
 
 TROUBLE_ID       := {trouble_id}
 
@@ -212,7 +212,7 @@ $(TROUBLE_TARGET_OUT): $(TROUBLE_TARGET) | $(BISECT_DIR)
 	$(RUNWRAP) ./$< --precision "$(PRECISION)" --output $@ $(TEST_CASE) --no-timing
 
 $(BISECT_TARGET): $(BISECT_OBJ) $(SPLIT_OBJ) Makefile custom.mk | $(BISECT_DIR)
-	$(GT_CC) $(CC_REQUIRED) -o $@ $(BISECT_OBJ) $(SPLIT_OBJ) $(LD_REQUIRED) $(GT_LDFLAGS)
+	$(BISECT_LINK) $(CC_REQUIRED) -o $@ $(BISECT_OBJ) $(SPLIT_OBJ) $(LD_REQUIRED) $(GT_LDFLAGS)
 
 $(TROUBLE_TARGET): $(TROUBLE_TARGET_OBJ) Makefile custom.mk | $(BISECT_DIR)
 	$(TROUBLE_CC) $(CC_REQUIRED) -o $@ $(TROUBLE_TARGET_OBJ) $(LD_REQUIRED) $(TROUBLE_LDFLAGS)
