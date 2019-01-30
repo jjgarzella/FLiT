@@ -128,7 +128,8 @@ MPIRUN_ARGS     := {mpirun_args}
 
 # initalize some variables to be appended later
 CC_REQUIRED     :=
-F_REQUIRED      := 
+F_REQUIRED      :=
+F_FIX_REQUIRED  :=
 DEV_CFLAGS      :=
 LD_REQUIRED     :=
 
@@ -208,7 +209,7 @@ SOURCE          += $(TESTS)
 F_SOURCE         = $(wildcard *.f90)
 
 VPATH            = $(dir $(SOURCE))
-VPATH            = $(dir $(F_SOURCE))
+VPATH           += $(dir $(F_SOURCE))
 
 .PHONY: help
 help:
@@ -240,10 +241,10 @@ help:
 VPATH           := $(sort $(VPATH))
 
 DEV_OBJ          = $(addprefix $(OBJ_DIR)/,$(notdir $(SOURCE:%.cpp=%_dev.o)))
-DEV_OBJ         += $(addprefix $(OBJ_DIR)/,$(notdir $(F_SOURCE:%.f90=%_dev.o)))
+DEV_OBJ          += $(addprefix $(OBJ_DIR)/,$(addsuffix _dev.o, $(basename $(notdir $(F_SOURCE)))))
 DEV_DEPS         = $(DEV_OBJ:%.o=%.d)
 GT_OBJ           = $(addprefix $(OBJ_DIR)/,$(notdir $(SOURCE:%.cpp=%_gt.o)))
-GT_OBJ          += $(addprefix $(OBJ_DIR)/,$(notdir $(F_SOURCE:%.f90=%_gt.o)))
+GT_OBJ          += $(addprefix $(OBJ_DIR)/,$(addsuffix _gt.o, $(basename $(notdir $(F_SOURCE)))))
 GT_DEPS          = $(GT_OBJ:%.o=%.d)
 GT_OBJ_FPIC      = $(GT_OBJ:%.o=%_fPIC.o)
 
@@ -299,7 +300,8 @@ ifdef R_IS_RECURSED
 R_ID            := $(R_CUR_COMPILER)_$(HOSTNAME)_$(R_CUR_SWITCHES)_$(R_CUR_OPTL)
 R_TARGET        := $(RESULTS_DIR)/$(R_ID)
 R_OBJ           := $(addprefix $(OBJ_DIR)/,$(notdir $(SOURCE:%.cpp=%_$(R_ID).o)))
-R_OBJ           += $(addprefix $(OBJ_DIR)/,$(notdir $(F_SOURCE:%.f90=%_$(R_ID).o)))
+# this may exclude source files with a dot in their name...
+R_OBJ           += $(addprefix $(OBJ_DIR)/,$(addsuffix _$(R_ID).o, $(basename $(notdir $(F_SOURCE_))))
 R_DEP           := $(R_OBJ:%.o=%.d)
 
 -include $(R_DEP)
@@ -333,6 +335,18 @@ $(OBJ_DIR)/%_$(R_ID).o: %.cpp Makefile custom.mk | $(OBJ_DIR)
 $(OBJ_DIR)/%_$(R_ID).o: %.f90 Makefile custom.mk | $(OBJ_DIR)
 	$($($(R_CUR_COLLECTION)_FXX)) $($(R_CUR_OPTL)) $($(R_CUR_SWITCHES)) \
 	  -c $($($(R_CUR_COLLECTION)_FXX)_REQUIRED) $(F_REQUIRED) \
+	  $< -o $@ \
+	  $(DEPFLAGS) \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(R_CUR_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$($(R_CUR_OPTL))"' \
+	  -DFLIT_SWITCHES='"$($(R_CUR_SWITCHES))"' \
+	  -DFLIT_FILENAME='"$(R_ID)"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/%_$(R_ID).o: %.F90 Makefile custom.mk | $(OBJ_DIR)
+	$($($(R_CUR_COLLECTION)_FXX)) $($(R_CUR_OPTL)) $($(R_CUR_SWITCHES)) \
+	  -c $($($(R_CUR_COLLECTION)_FXX)_REQUIRED) $(F_FIX_REQUIRED) \
 	  $< -o $@ \
 	  $(DEPFLAGS) \
 	  -DFLIT_HOST='"$(HOSTNAME)"' \
@@ -503,6 +517,15 @@ $(OBJ_DIR)/%_dev.o: %.f90 Makefile custom.mk | $(OBJ_DIR)
 	  -DFLIT_SWITCHES='"$(DEV_SWITCHES)"' \
 	  -DFLIT_FILENAME='"$(notdir $(DEV_TARGET))"'
 
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/%_dev.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
+	$($($(DEV_COLLECTION)_FXX)) $(DEV_OPTL) $(DEV_SWITCHES) $(F_FIX_REQUIRED) $(DEV_CFLAGS) $(DEPFLAGS) -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(DEV_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(DEV_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(DEV_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(DEV_TARGET))"'
+
 # Ground truth compilation rules
 $(GT_OUT): $(GT_TARGET)
 	$(RUNWRAP) ./$(GT_TARGET) --output $(GT_OUT) --no-timing
@@ -527,6 +550,15 @@ $(OBJ_DIR)/%_gt.o: %.f90 Makefile custom.mk | $(OBJ_DIR)
 	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
 	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
 
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/%_gt.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
+	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_FIX_REQUIRED) $(DEPFLAGS) -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(GT_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(GT_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
+
 $(OBJ_DIR)/%_gt_fPIC.o: %.cpp Makefile custom.mk | $(OBJ_DIR)
 	$(GT_CC) -g $(GT_OPTL) $(GT_SWITCHES) $(CC_REQUIRED) $(DEPFLAGS) -fPIC -c $< -o $@ \
 	  -DFLIT_HOST='"$(HOSTNAME)"' \
@@ -538,6 +570,15 @@ $(OBJ_DIR)/%_gt_fPIC.o: %.cpp Makefile custom.mk | $(OBJ_DIR)
 # FORTRAN copy of the previous cpp rule
 $(OBJ_DIR)/%_gt_fPIC.o: %.f90 Makefile custom.mk | $(OBJ_DIR)
 	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_REQUIRED) $(DEPFLAGS) -fPIC -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(GT_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(GT_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/%_gt_fPIC.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
+	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_FIX_REQUIRED) $(DEPFLAGS) -fPIC -c $< -o $@ \
 	  -DFLIT_HOST='"$(HOSTNAME)"' \
 	  -DFLIT_COMPILER='"$($($(GT_COLLECTION)_FXX))"' \
 	  -DFLIT_OPTL='"$(GT_OPTL)"' \
