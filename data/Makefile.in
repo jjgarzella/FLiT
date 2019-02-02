@@ -248,8 +248,6 @@ GT_OBJ          += $(addprefix $(OBJ_DIR)/,$(addsuffix _gt.o, $(basename $(notdi
 GT_DEPS          = $(GT_OBJ:%.o=%.d)
 GT_OBJ_FPIC      = $(GT_OBJ:%.o=%_fPIC.o)
 
-$(info GT_OBJ is $(GT_OBJ))
-
 HOSTNAME        := {hostname}
 
 RESULTS_DIR     := results

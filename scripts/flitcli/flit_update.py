@@ -388,12 +388,12 @@ def main(arguments, prog=sys.argv[0]):
             for x in compiler['switches_list']}),
         'compiler_opcodes': '\n\n'.join([
             gen_multi_assignment(
-                'OPCODES_' + compiler['type'].upper(),
+                'OPCODES_' + compiler['name'].upper(),
                 [flag_name(x) for x in compiler['optimization_levels']])
             for compiler in projconf['compiler']]),
         'compiler_switches': '\n\n'.join([
             gen_multi_assignment(
-                'SWITCHES_' + compiler['type'].upper(),
+                'SWITCHES_' + compiler['name'].upper(),
                 [flag_name(x) for x in compiler['switches_list']])
             for compiler in projconf['compiler']]),
         }
