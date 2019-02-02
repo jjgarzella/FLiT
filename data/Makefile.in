@@ -295,11 +295,11 @@ R_CUR_SWITCHES  ?=
 # If we are in a recursion
 ifdef R_IS_RECURSED
 
-R_ID            := $(R_CUR_COMPILER)_$(HOSTNAME)_$(R_CUR_SWITCHES)_$(R_CUR_OPTL)
+R_ID            := $(R_CUR_COLLECTION)_$(HOSTNAME)_$(R_CUR_SWITCHES)_$(R_CUR_OPTL)
 R_TARGET        := $(RESULTS_DIR)/$(R_ID)
 R_OBJ           := $(addprefix $(OBJ_DIR)/,$(notdir $(SOURCE:%.cpp=%_$(R_ID).o)))
 # this may exclude source files with a dot in their name...
-R_OBJ           += $(addprefix $(OBJ_DIR)/,$(addsuffix _$(R_ID).o, $(basename $(notdir $(F_SOURCE_)))))
+R_OBJ           += $(addprefix $(OBJ_DIR)/,$(addsuffix _$(R_ID).o, $(basename $(notdir $(F_SOURCE)))))
 R_DEP           := $(R_OBJ:%.o=%.d)
 
 -include $(R_DEP)
