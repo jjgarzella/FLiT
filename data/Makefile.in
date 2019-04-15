@@ -92,15 +92,6 @@ UNAME_S         := {uname}
 # will be None if not specified in flit-config.toml
 {compiler_defs}
 
-# Required flags, LD flags, and Types are kept track of
-#             on a per compiler basis
-
-{compiler_required_flags}
-
-{compiler_ld_flags}
-
-{compiler_types}
-
 # keep only the compilers that are not None and are in the path
 COMPILERS       := {compilers}
 
@@ -263,6 +254,15 @@ ifeq ($(findstring GCC,$(COMPILERS)),GCC)
 GCC_TOOLCHAIN   := $(dir $(shell which $(GCC) 2>/dev/null))/..
 CLANG_REQUIRED  += --gcc-toolchain=$(GCC_TOOLCHAIN)
 endif
+
+# Required flags, LD flags, and Types are kept track of
+#             on a per compiler basis
+
+{compiler_required_flags}
+
+{compiler_ld_flags}
+
+{compiler_types}
 
 # Compiler setting targets
 #   taken from: https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
@@ -557,7 +557,7 @@ $(GT_OUT): $(GT_TARGET)
 
 $(GT_TARGET): $(GT_OBJ) Makefile custom.mk
 	$(GT_CXX) $(CC_REQUIRED) -o $@ $(GT_OBJ) $(LD_REQUIRED) $(GT_LDFLAGS) \
-        $($($(DEV_COLLECTION)_CXX)_LD_REQUIRED) 
+        $($($(GT_COLLECTION)_CXX)_LD_REQUIRED) 
 
 $(OBJ_DIR)/%_gt.o: %.cpp Makefile custom.mk | $(OBJ_DIR)
 	$(GT_CXX) -g $(GT_OPTL) $(GT_SWITCHES) $(CC_REQUIRED) \
