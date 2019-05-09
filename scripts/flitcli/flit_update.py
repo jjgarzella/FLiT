@@ -230,7 +230,7 @@ def lang_name(lang):
     
     raise Exception("Unsupported Language: " + lang)
 
-def gen_assignments(flag_map):
+def gen_assignments(flag_map, lazy=False):
     '''
     Given a mapping of Makefile variable name to value, create a single string
     of assignments suitable for placing within a Makefile
@@ -266,7 +266,11 @@ def gen_assignments(flag_map):
     not_so_long_32  := harry
     short           := very long value here
     '''
-    name_assignments = ['{} := {}'.format(name.ljust(15), flag)
+    
+    template = '{} := {}'
+    if lazy:
+        template = '{} = {}'
+    name_assignments = [template.format(name.ljust(15), flag)
                         for name, flag in flag_map.items()]
     return '\n'.join(name_assignments)
 
@@ -385,9 +389,11 @@ def main(arguments, prog=sys.argv[0]):
         'compiler_defs': gen_assignments({
             key: val for key, val in base_compilers.items()}),
         'compiler_required_flags': gen_assignments({
-            key + '_REQUIRED': val for key, val in compiler_req_flags.items()}),
+            key + '_REQUIRED': val for key, val in compiler_req_flags.items()}, 
+            lazy=True),
         'compiler_ld_flags': gen_assignments({
-            key + '_LD_REQUIRED': val for key, val in compiler_ld_flags.items()}),
+            key + '_LD_REQUIRED': val for key, val in compiler_ld_flags.items()},
+            lazy=True),
         'compiler_types': gen_assignments({
             key + '_TYPE': val for key, val in compiler_types.items()}),
         'compilers': ' '.join([compiler['name'].upper()

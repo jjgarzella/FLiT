@@ -128,12 +128,12 @@ TEST_RUN_ARGS   := {test_run_args}
 ENABLE_MPI      := {enable_mpi}
 MPIRUN_ARGS     := {mpirun_args}
 
-# initalize some variables to be appended later
-CC_REQUIRED     :=
-F_REQUIRED      :=
-F_FIX_REQUIRED  :=
-DEV_CFLAGS      :=
-LD_REQUIRED     :=
+# initialize some variables to be appended later
+CC_REQUIRED     =
+F_REQUIRED      =
+F_FIX_REQUIRED  =
+DEV_CFLAGS      =
+LD_REQUIRED     =
 
 RUNWRAP          = $(RUN_WRAPPER)
 ifeq ($(ENABLE_MPI),yes) # If we are using MPI
@@ -306,6 +306,9 @@ R_OBJ           := $(addprefix $(OBJ_DIR)/,$(notdir $(SOURCE:%.cpp=%_$(R_ID).o))
 R_OBJ           += $(addprefix $(OBJ_DIR)/,$(addsuffix _$(R_ID).o, $(basename $(notdir $(F_SOURCE)))))
 R_DEP           := $(R_OBJ:%.o=%.d)
 
+CUR_DIR         := $(OBJ_DIR)/$(R_ID)
+___ := $(shell mkdir -p $(CUR_DIR))
+
 R_CUR_CXX       := $($(R_CUR_COLLECTION)_CXX)
 R_CUR_FXX       := $($(R_CUR_COLLECTION)_FXX)
 
@@ -444,6 +447,7 @@ TARGET_RESULTS  := $(TARGET_OUTS:%=%-comparison.csv)
 # Define the recursion rules
 #
 
+# TODO: currently does not deal with fortran
 OBJ_CLEAN        = $(addprefix $(OBJ_DIR)/,$(notdir $(SOURCE:%.cpp=%_*.o)))
 DEP_CLEAN       += $(OBJ_CLEAN:%.o=%.d)
 
@@ -464,6 +468,10 @@ clean:
 	@# arguments given to rm.
 	$(foreach obj,$(OBJ_CLEAN),rm -f $(obj);)
 	$(foreach obj,$(DEP_CLEAN),rm -f $(obj);)
+	@# Slight hack - there isn't a great way to recover all the IDs without
+	@# doing the same giant for loop that the recursion does, so just remove
+	@# everything.
+	$(foreach dirc,$(wildcard obj/*),rm -rf $(dirc);) 
 	-rmdir $(OBJ_DIR)
 
 .PHONY: veryclean distclean
@@ -516,6 +524,9 @@ endif # ifeq ($(UNAME_S),Darwin): meaning, we are on a mac
 # Now for the compilation rules:
 #
 
+CUR_DIR := $(OBJ_DIR)/dev
+___ := $(shell mkdir -p $(CUR_DIR))
+
 # Dev compilation rules first (easier to understand)
 $(DEV_TARGET): $(DEV_OBJ) Makefile custom.mk
 	$(DEV_CXX) $(CC_REQUIRED) $(DEV_CFLAGS) \
@@ -550,6 +561,9 @@ $(OBJ_DIR)/%_dev.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
 	  -DFLIT_OPTL='"$(DEV_OPTL)"' \
 	  -DFLIT_SWITCHES='"$(DEV_SWITCHES)"' \
 	  -DFLIT_FILENAME='"$(notdir $(DEV_TARGET))"'
+
+CUR_DIR := $(OBJ_DIR)/gt
+___ := $(shell mkdir -p $(CUR_DIR))
 
 # Ground truth compilation rules
 $(GT_OUT): $(GT_TARGET)
