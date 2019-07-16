@@ -238,10 +238,19 @@ VPATH           := $(sort $(VPATH))
 DEV_OBJ          = $(addprefix $(OBJ_DIR)/dev/,$(notdir $(SOURCE:%.cpp=%.o)))
 DEV_OBJ          += $(addprefix $(OBJ_DIR)/dev/,$(addsuffix .o, $(basename $(notdir $(F_SOURCE)))))
 DEV_DEPS         = $(DEV_OBJ:%.o=%.d)
+DEV_FDEPS       := $(OBJ_DIR)/depend_dev
+
+___ := $(shell mkdir -p $(OBJ_DIR)/dev)
+___ := $(shell makedepf90 $(F_SOURCE) -b $(OBJ_DIR)/dev/ > $(DEV_FDEPS))
+
 GT_OBJ           = $(addprefix $(OBJ_DIR)/gt/,$(notdir $(SOURCE:%.cpp=%.o)))
 GT_OBJ          += $(addprefix $(OBJ_DIR)/gt/,$(addsuffix .o, $(basename $(notdir $(F_SOURCE)))))
 GT_DEPS          = $(GT_OBJ:%.o=%.d)
+GT_FDEPS        := $(OBJ_DIR)/depend_gt
 GT_OBJ_FPIC      = $(GT_OBJ:%.o=%_fPIC.o)
+
+___ := $(shell mkdir -p $(OBJ_DIR)/gt)
+___ := $(shell makedepf90 $(F_SOURCE) -b $(OBJ_DIR)/gt/ > $(GT_FDEPS))
 
 HOSTNAME        := {hostname}
 
@@ -307,6 +316,7 @@ R_OBJ           := $(addprefix $(OBJ_DIR)/$(R_ID)/,$(notdir $(SOURCE:%.cpp=%.o))
 # this may exclude source files with a dot in their name...
 R_OBJ           += $(addprefix $(OBJ_DIR)/$(R_ID)/,$(addsuffix .o, $(basename $(notdir $(F_SOURCE)))))
 R_DEP           := $(R_OBJ:%.o=%.d)
+R_FDEP          := $(OBJ_DIR)/depend_$(R_ID)
 
 CUR_DIR         := $(OBJ_DIR)/$(R_ID)_include
 ___ := $(shell mkdir -p $(CUR_DIR))
@@ -315,7 +325,10 @@ ___ := $(shell mkdir -p $(OBJ_DIR)/$(R_ID))
 R_CUR_CXX       := $($(R_CUR_COLLECTION)_CXX)
 R_CUR_FXX       := $($(R_CUR_COLLECTION)_FXX)
 
+___ := $(shell makedepf90 $(F_SOURCE) -b $(OBJ_DIR)/$(R_ID) > $(R_FDEP))
+
 -include $(R_DEP)
+-include $(R_FDEP)
 
 .PHONY: rec
 rec: $(R_TARGET)
@@ -523,13 +536,15 @@ endif # ifeq ($(UNAME_S),Darwin): meaning, we are on a mac
 -include $(GT_DEPS)
 -include $(DEV_DEPS)
 
+-include $(GT_FDEPS)
+-include $(DEV_FDEPS)
+
 #
 # Now for the compilation rules:
 #
 
 CUR_DIR := $(OBJ_DIR)/dev_include
 ___ := $(shell mkdir -p $(CUR_DIR))
-___ := $(shell mkdir -p $(OBJ_DIR)/dev)
 
 # Dev compilation rules first (easier to understand)
 $(DEV_TARGET): $(DEV_OBJ) Makefile custom.mk
@@ -568,7 +583,6 @@ $(OBJ_DIR)/dev/%.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
 
 CUR_DIR := $(OBJ_DIR)/gt_include
 ___ := $(shell mkdir -p $(CUR_DIR))
-___ := $(shell mkdir -p $(OBJ_DIR)/gt)
 
 # Ground truth compilation rules
 $(GT_OUT): $(GT_TARGET)
