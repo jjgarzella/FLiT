@@ -384,6 +384,30 @@ $(OBJ_DIR)/$(R_ID)/%.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
 	  -DFLIT_OPTL='"$($(R_CUR_OPTL))"' \
 	  -DFLIT_SWITCHES='"$($(R_CUR_SWITCHES))"' \
 	  -DFLIT_FILENAME='"$(R_ID)"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/$(R_ID)/%.o: %.F Makefile custom.mk | $(OBJ_DIR)
+	$($(R_CUR_FXX)) $($(R_CUR_OPTL)) $($(R_CUR_SWITCHES)) \
+	  -c $($(R_CUR_FXX)_REQUIRED) $(F_FIX_REQUIRED) \
+	  $< -o $@ \
+	  $(DEPFLAGS) \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($(R_CUR_FXX))"' \
+	  -DFLIT_OPTL='"$($(R_CUR_OPTL))"' \
+	  -DFLIT_SWITCHES='"$($(R_CUR_SWITCHES))"' \
+	  -DFLIT_FILENAME='"$(R_ID)"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/$(R_ID)/%.o: %.f Makefile custom.mk | $(OBJ_DIR)
+	$($(R_CUR_FXX)) $($(R_CUR_OPTL)) $($(R_CUR_SWITCHES)) \
+	  -c $($(R_CUR_FXX)_REQUIRED) $(F_FIX_REQUIRED) \
+	  $< -o $@ \
+	  $(DEPFLAGS) \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($(R_CUR_FXX))"' \
+	  -DFLIT_OPTL='"$($(R_CUR_OPTL))"' \
+	  -DFLIT_SWITCHES='"$($(R_CUR_SWITCHES))"' \
+	  -DFLIT_FILENAME='"$(R_ID)"'
 # Otherwise, we're not in a recursion.
 else # ifndef R_IS_RECURSED
 
@@ -581,6 +605,26 @@ $(OBJ_DIR)/dev/%.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
 	  -DFLIT_SWITCHES='"$(DEV_SWITCHES)"' \
 	  -DFLIT_FILENAME='"$(notdir $(DEV_TARGET))"'
 
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/dev/%.o: %.F Makefile custom.mk | $(OBJ_DIR)
+	$($($(DEV_COLLECTION)_FXX)) $(DEV_OPTL) $(DEV_SWITCHES) $(F_FIX_REQUIRED) \
+        $($($(DEV_COLLECTION)_FXX)_REQUIRED) $(DEV_CFLAGS) $(DEPFLAGS) -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(DEV_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(DEV_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(DEV_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(DEV_TARGET))"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/dev/%.o: %.f Makefile custom.mk | $(OBJ_DIR)
+	$($($(DEV_COLLECTION)_FXX)) $(DEV_OPTL) $(DEV_SWITCHES) $(F_FIX_REQUIRED) \
+        $($($(DEV_COLLECTION)_FXX)_REQUIRED) $(DEV_CFLAGS) $(DEPFLAGS) -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(DEV_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(DEV_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(DEV_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(DEV_TARGET))"'
+
 CUR_DIR := $(OBJ_DIR)/gt_include
 ___ := $(shell mkdir -p $(CUR_DIR))
 
@@ -621,6 +665,26 @@ $(OBJ_DIR)/gt/%.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
 	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
 	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
 
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/gt/%.o: %.F Makefile custom.mk | $(OBJ_DIR)
+	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_FIX_REQUIRED) \
+        $($($(GT_COLLECTION)_FXX)_REQUIRED) $(DEPFLAGS) -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(GT_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(GT_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/gt/%.o: %.f Makefile custom.mk | $(OBJ_DIR)
+	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_FIX_REQUIRED) \
+        $($($(GT_COLLECTION)_FXX)_REQUIRED) $(DEPFLAGS) -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(GT_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(GT_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
+
 $(OBJ_DIR)/gt/%_fPIC.o: %.cpp Makefile custom.mk | $(OBJ_DIR)
 	$(GT_CXX) -g $(GT_OPTL) $(GT_SWITCHES) $(CC_REQUIRED) \
         $($($(GT_COLLECTION)_CXX)_REQUIRED) $(DEPFLAGS) -fPIC -c $< -o $@ \
@@ -642,6 +706,26 @@ $(OBJ_DIR)/gt/%_fPIC.o: %.f90 Makefile custom.mk | $(OBJ_DIR)
 
 # Fixed Form FORTRAN copy
 $(OBJ_DIR)/gt/%_fPIC.o: %.F90 Makefile custom.mk | $(OBJ_DIR)
+	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_FIX_REQUIRED) \
+        $($($(GT_COLLECTION)_FXX)_REQUIRED) $(DEPFLAGS) -fPIC -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(GT_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(GT_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/gt/%_fPIC.o: %.F Makefile custom.mk | $(OBJ_DIR)
+	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_FIX_REQUIRED) \
+        $($($(GT_COLLECTION)_FXX)_REQUIRED) $(DEPFLAGS) -fPIC -c $< -o $@ \
+	  -DFLIT_HOST='"$(HOSTNAME)"' \
+	  -DFLIT_COMPILER='"$($($(GT_COLLECTION)_FXX))"' \
+	  -DFLIT_OPTL='"$(GT_OPTL)"' \
+	  -DFLIT_SWITCHES='"$(GT_SWITCHES)"' \
+	  -DFLIT_FILENAME='"$(notdir $(GT_TARGET))"'
+
+# Fixed Form FORTRAN copy
+$(OBJ_DIR)/gt/%_fPIC.o: %.f Makefile custom.mk | $(OBJ_DIR)
 	$($($(GT_COLLECTION)_FXX)) -g $(GT_OPTL) $(GT_SWITCHES) $(F_FIX_REQUIRED) \
         $($($(GT_COLLECTION)_FXX)_REQUIRED) $(DEPFLAGS) -fPIC -c $< -o $@ \
 	  -DFLIT_HOST='"$(HOSTNAME)"' \
