@@ -127,6 +127,37 @@ timing_repeats = 3
 enable_mpi = false
 mpirun_args = ''
 
+[[language]]
+name = 'c++'
+prefix = 'CXX'
+extensions = [
+  'cpp',
+  'cc',
+]
+
+[[language]]
+name = 'c'
+prefix = 'CC'
+extensions = [
+  'c',
+]
+
+[[language]]
+name = 'fortran90'
+prefix = 'FXX'
+extensions = [
+  'f90',
+]
+
+[[language]]
+name = 'fortranFF'
+prefix = 'F_FXX'
+extensions = [
+  'F',
+  'for',
+  'f',
+  'F90',
+]
 
 # The settings for "make dev", which generates the "devrun" executable
 [dev_build]

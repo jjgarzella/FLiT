@@ -230,6 +230,34 @@ def lang_name(lang):
     
     raise Exception("Unsupported Language: " + lang)
 
+def compile_command(run_id,extension,collection,lang_prefix,
+        optl,switches,otherflags='',target_suffix=''):
+    '''
+    Returns a compiler command for a given extension, language,
+    and other configurations. This is generic over the
+    DEV, GT, and the recursed commands that FLiT uses
+    '''
+    return '''$(OBJ_DIR)/$({0})/%{7}.o: %.{1} Makefile custom.mk | $(OBJ_DIR)\n\t$($($({2})_{3})) $({4}) $({5}) $({3}_REQUIRED) \\
+        $($($({2})_{3})_REQUIRED) $(DEPFLAGS) {6} -c $< -o $@ \\
+          -DFLIT_HOST='"$(HOSTNAME)"' \\
+          -DFLIT_COMPILER='"$($($({2})_{3}))"' \\
+          -DFLIT_OPTL='"$({4})"' \\
+          -DFLIT_SWITCHES='"$({5})"' \\
+          -DFLIT_FILENAME='"$({0})"'\n'''.format(run_id,extension,collection,
+        lang_prefix,optl,switches,otherflags,target_suffix)
+
+def obj_from_source(run_id,line_prefix,lang_prefix):
+    '''
+    Returns a series of make statements that calculates
+    all object files from the many source variables
+    '''
+
+    # We don't know which extension fortran wil be using,
+    #     so just look for a dot in the filename.
+    # this may exclude source files with a dot in their name...
+    return '''{1}_OBJ           += $(addprefix $(OBJ_DIR)/$({0})/,$(addsuffix .o, $(basename $(notdir $({2}_SOURCE)))))'''.format(
+        run_id,line_prefix,lang_prefix)
+
 def gen_assignments(flag_map, lazy=False):
     '''
     Given a mapping of Makefile variable name to value, create a single string
@@ -365,15 +393,56 @@ def main(arguments, prog=sys.argv[0]):
             collection[name].upper() for name in collection['langs']} 
             for collection in collections]
 
+    # language-specifics
+    req_defs = []
+    source_defs = []
+
+    recursed_commands = []
+    dev_commands = []
+    gt_commands = []
+    gt_fPIC_commands = []
+
+    dev_obj = [gen_assignments({'DEV_OBJ':''},True)]
+    gt_obj = [gen_assignments({'GT_OBJ':''},True)]
+    recursed_obj = [gen_assignments({'DEV_OBJ':''},True)]
+
+    for lang in projconf['language']:
+        req_def = gen_assignments({lang['prefix'] + '_REQURED':''},True)
+        req_defs.append(req_def)
+
+        source_def = gen_assignments({lang['prefix'] + '_SOURCE':''},True)
+        source_defs.append(source_def)
+
+        dev_obj.append(obj_from_source("DEV_DIR","DEV",lang['prefix']))
+        gt_obj.append(obj_from_source("GT_DIR","GT",lang['prefix']))
+        dev_obj.append(obj_from_source("R_ID","R",lang['prefix']))
+
+        for extn in lang['extensions']:
+            recursed_commands.append(compile_command("R_ID",extn,"R_CUR_COLLECTION",
+                lang['prefix'],"$(R_CUR_OPTL)","$(R_CUR_SWITCHES)"))
+            dev_commands.append(compile_command("DEV_DIR",extn,"DEV_COLLECTION",
+                lang['prefix'],"DEV_OPTL","DEV_SWITCHES"))
+            gt_commands.append(compile_command("GT_DIR",extn,"GT_COLLECTION",
+                lang['prefix'],"GT_OPTL","GT_SWITCHES","-g"))
+            gt_fPIC_commands.append(compile_command("GT_DIR",extn,"GT_COLLECTION",
+                lang['prefix'],"GT_OPTL","GT_SWITCHES","-g -fPIC","_fPIC"))
+
+
+
     replacements = {
         'uname': os.uname().sysname,
         'hostname': os.uname().nodename,
         'dev_collection': matching_dev_collections[0]['name'].upper(),
         'dev_optl': dev_build['optimization_level'],
         'dev_switches': dev_build['switches'],
+        'dev_commands': '\n'.join(dev_commands),
+        'dev_obj': '\n'.join(dev_obj),
         'ground_truth_collection': matching_gt_collections[0]['name'].upper(),
         'ground_truth_optl': ground_truth['optimization_level'],
         'ground_truth_switches': ground_truth['switches'],
+        'ground_truth_commands': '\n'.join(gt_commands),
+        'ground_truth_fPIC_commands': '\n'.join(gt_fPIC_commands),
+        'ground_truth_obj': '\n'.join(gt_obj),
         'flit_include_dir': conf.include_dir,
         'flit_lib_dir': conf.lib_dir,
         'flit_data_dir': conf.data_dir,
@@ -382,11 +451,15 @@ def main(arguments, prog=sys.argv[0]):
         'test_run_args': test_run_args,
         'enable_mpi': 'yes' if projconf['run']['enable_mpi'] else 'no',
         'mpirun_args': projconf['run']['mpirun_args'],
+        'required_flags_definitions': '\n'.join(req_defs),
+        'source_definitions': '\n'.join(source_defs),
+        'recursed_commands': '\n'.join(recursed_commands),
+        'recursed_obj': '\n'.join(recursed_obj),
         'collections': ' '.join(collection['name'].upper() 
             for collection in projconf['compiler_collection']),
-        'collection_defs': '\n\n'.join([gen_assignments(collection) 
+        'collection_definitions': '\n\n'.join([gen_assignments(collection) 
             for collection in collections_def_map]),
-        'compiler_defs': gen_assignments({
+        'compiler_definitions': gen_assignments({
             key: val for key, val in base_compilers.items()}),
         'compiler_required_flags': gen_assignments({
             key + '_REQUIRED': val for key, val in compiler_req_flags.items()}, 
