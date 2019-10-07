@@ -128,7 +128,7 @@ enable_mpi = false
 mpirun_args = ''
 
 [[language]]
-name = 'c++'
+name = 'cpp'
 prefix = 'CXX'
 extensions = [
   'cpp',
