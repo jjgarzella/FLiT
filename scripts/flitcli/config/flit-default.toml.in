@@ -364,7 +364,9 @@ switches_list = [
 name = 'gcc'
 langs = [
   'cpp',
-  'fortran'
+  'fortran90',
+  'fortranFF',
 ]
 cpp = 'g++'
-fortran = 'gfortran'
+fortran90 = 'gfortran'
+fortranFF = 'gfortran'

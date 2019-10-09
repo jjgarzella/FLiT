@@ -215,18 +215,16 @@ def flag_name(flag):
     assert len(name) > 0, 'Error: cannot handle flag only made of dashes'
     return name
 
-def lang_name(lang):
+def lang_name(lang,conf):
     ''' 
     Returns an appropriate Makefile name for a compiler of the
     given language
     '''
 
-    if lang == 'cpp':
-        return "CXX"
-    if lang == "c":
-        return "CC"
-    if lang == "fortran":
-        return "FXX"
+    langs = conf['language']
+    names = {l['name'] : l['prefix'] for l in langs}
+    if lang in names.keys():
+        return names[lang]
     
     raise Exception("Unsupported Language: " + lang)
 
@@ -389,7 +387,8 @@ def main(arguments, prog=sys.argv[0]):
             '--timing-repeats', str(projconf['run']['timing_repeats']),
             ])
     collections = projconf['compiler_collection']
-    collections_def_map = [{collection['name'].upper() + '_' + lang_name(name): \
+    collections_def_map = [{collection['name'].upper() + \
+            '_' + lang_name(name,projconf): \
             collection[name].upper() for name in collection['langs']} 
             for collection in collections]
 
